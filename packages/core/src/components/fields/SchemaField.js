@@ -4,7 +4,6 @@ import PropTypes from "prop-types";
 import * as types from "../../types";
 
 import {
-  ADDITIONAL_PROPERTY_FLAG,
   isSelect,
   retrieveSchema,
   toIdSchema,
@@ -12,7 +11,7 @@ import {
   mergeObjects,
   deepEquals,
   getSchemaType,
-  getDisplayLabel,
+  getDisplayLabel, isAddedProperty,
 } from "../../utils";
 
 const REQUIRED_FIELD_SYMBOL = "*";
@@ -142,13 +141,13 @@ function DefaultTemplate(props) {
   }
 
   return (
-    <WrapIfAdditional {...props}>
+    <WrapIfAdded {...props}>
       {displayLabel && <Label label={label} required={required} id={id} />}
       {displayLabel && description ? description : null}
       {children}
       {errors}
       {help}
-    </WrapIfAdditional>
+    </WrapIfAdded>
   );
 }
 if (process.env.NODE_ENV !== "production") {
@@ -179,7 +178,7 @@ DefaultTemplate.defaultProps = {
   displayLabel: true,
 };
 
-function WrapIfAdditional(props) {
+function WrapIfAdded(props) {
   const {
     id,
     classNames,
@@ -192,9 +191,9 @@ function WrapIfAdditional(props) {
     schema,
   } = props;
   const keyLabel = `${label} Key`; // i18n ?
-  const additional = schema.hasOwnProperty(ADDITIONAL_PROPERTY_FLAG);
+  const addedProperty = isAddedProperty(schema);
 
-  if (!additional) {
+  if (!addedProperty) {
     return <div className={classNames}>{props.children}</div>;
   }
 

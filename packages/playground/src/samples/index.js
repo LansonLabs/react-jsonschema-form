@@ -22,6 +22,7 @@ import alternatives from "./alternatives";
 import propertyDependencies from "./propertyDependencies";
 import schemaDependencies from "./schemaDependencies";
 import additionalProperties from "./additionalProperties";
+import patternProperties from "./patternProperties";
 import nullable from "./nullable";
 import nullField from "./null";
 import errorSchema from "./errorSchema";
@@ -49,6 +50,7 @@ export const samples = {
   "Property dependencies": propertyDependencies,
   "Schema dependencies": schemaDependencies,
   "Additional Properties": additionalProperties,
+  "Pattern Properties": patternProperties,
   "Any Of": anyOf,
   "One Of": oneOf,
   "All Of": allOf,
