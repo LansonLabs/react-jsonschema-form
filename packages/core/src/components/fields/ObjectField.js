@@ -60,8 +60,16 @@ class ObjectField extends Component {
   isRequired(name) {
     const schema = this.props.schema;
     return (
-      Array.isArray(schema.required) && schema.required.indexOf(name) !== -1
+      (this.props.required || !this.isEmpty(this.props.formData)) &&
+      Array.isArray(schema.required) && schema.required.includes(name)
     );
+  }
+
+  isEmpty(formData) {
+    return !formData || !Object.values(formData).find((v) =>
+      (Array.isArray(v) && v.length > 0) ||
+      (!Array.isArray(v) && typeof v === 'object' && v !== null && Object.keys(v).length > 0) ||
+      !!v);
   }
 
   onPropertyChange = (name, addedByAdditionalProperties = false) => {
@@ -78,7 +86,7 @@ class ObjectField extends Component {
       }
       const newFormData = { ...this.props.formData, [name]: value };
       this.props.onChange(
-        newFormData,
+        this.isEmpty(newFormData) ? undefined : newFormData,
         errorSchema &&
           this.props.errorSchema && {
             ...this.props.errorSchema,

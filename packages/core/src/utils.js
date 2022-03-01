@@ -234,7 +234,7 @@ function computeDefaults(
   switch (getSchemaType(schema)) {
     // We need to recur for object schema inner default values.
     case "object":
-      return Object.keys(schema.properties || {}).reduce((acc, key) => {
+      defaults = Object.keys(schema.properties || {}).reduce((acc, key) => {
         // Compute the defaults for this node, with the parent defaults we might
         // have from a previous run: defaults[key].
         let computedDefault = computeDefaults(
@@ -249,6 +249,7 @@ function computeDefaults(
         }
         return acc;
       }, {});
+      return Object.keys(defaults).length > 0 ? defaults: undefined;  // TODO - only return undefined if not required
 
     case "array":
       // Inject defaults into existing array defaults
