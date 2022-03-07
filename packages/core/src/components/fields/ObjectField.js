@@ -7,7 +7,8 @@ import {
   retrieveSchema,
   getDefaultRegistry,
   canExpand,
-  ADDITIONAL_PROPERTY_FLAG,
+  isAddedProperty,
+  uiSchemaForProperty,
 } from "../../utils";
 
 function DefaultObjectFieldTemplate(props) {
@@ -72,12 +73,12 @@ class ObjectField extends Component {
       !!v);
   }
 
-  onPropertyChange = (name, addedByAdditionalProperties = false) => {
+  onPropertyChange = (name, addedProperty = false) => {
     return (value, errorSchema) => {
-      if (value === undefined && addedByAdditionalProperties) {
+      if (value === undefined && addedProperty) {
         // Don't set value = undefined for fields added by
-        // additionalProperties. Doing so removes them from the
-        // formData, which causes them to completely disappear
+        // additionalProperties or patternProperties. Doing so removes
+        // them from the  formData, which causes them to completely disappear
         // (including the input field for the property name). Unlike
         // fields which are "mandated" by the schema, these fields can
         // be set to undefined by clicking a "delete field" button, so
@@ -164,6 +165,9 @@ class ObjectField extends Component {
   }
 
   handleAddClick = schema => () => {
+    // TODO - problem: we won't know which patternProperty or additionalProperties schema to apply until we have a key
+    //  solution? => if additionalProperties, use that type by default. On key change, update type to first matching
+    //  patternProperty type, if available
     let type = schema.additionalProperties.type;
     const newFormData = { ...this.props.formData };
 
@@ -235,12 +239,8 @@ class ObjectField extends Component {
       TitleField,
       DescriptionField,
       properties: orderedProperties.map(name => {
-        const addedByAdditionalProperties = schema.properties[
-          name
-        ].hasOwnProperty(ADDITIONAL_PROPERTY_FLAG);
-        const fieldUiSchema = addedByAdditionalProperties
-          ? uiSchema.additionalProperties
-          : uiSchema[name];
+        const addedProperty = isAddedProperty(schema.properties[name]);
+        const fieldUiSchema = uiSchemaForProperty(name, schema.properties, uiSchema);
         const hidden = fieldUiSchema && fieldUiSchema["ui:widget"] === "hidden";
 
         return {
@@ -260,7 +260,7 @@ class ObjectField extends Component {
               onKeyChange={this.onKeyChange(name)}
               onChange={this.onPropertyChange(
                 name,
-                addedByAdditionalProperties
+                addedProperty
               )}
               onBlur={onBlur}
               onFocus={onFocus}

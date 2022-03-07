@@ -2,6 +2,7 @@ import React from "react";
 import * as ReactIs from "react-is";
 import mergeAllOf from "json-schema-merge-allof";
 import fill from "core-js-pure/features/array/fill";
+import cloneDeep from "lodash/cloneDeep";
 import union from "lodash/union";
 import jsonpointer from "jsonpointer";
 import fields from "./components/fields";
@@ -9,6 +10,7 @@ import widgets from "./components/widgets";
 import validateFormData, { isValid } from "./validate";
 
 export const ADDITIONAL_PROPERTY_FLAG = "__additional_property";
+export const PATTERN_PROPERTY = "__pattern_property";
 
 const widgetMap = {
   boolean: {
@@ -676,6 +678,64 @@ export function stubExistingAdditionalProperties(
   return schema;
 }
 
+// This function will create new "properties" items for each unassigned key matching the pattern(s) in our formData
+export function stubExistingPatternProperties(
+  schema,
+  rootSchema = {},
+  formData = {}
+) {
+  // Clone the schema so we don't ruin the consumer's original
+  schema = cloneDeep(schema);
+
+  if (!schema.properties) {
+    schema.properties = { };
+  }
+
+  const hasAdditionalProperties =
+    schema.hasOwnProperty("additionalProperties") &&
+    schema.additionalProperties !== false;
+
+  // make sure formData is an object
+  formData = isObject(formData) ? formData : {};
+
+  // TODO - dieseldjango: catch exception for invalid regex?
+  const patterns = Object.keys(schema.patternProperties).map(pattern => [pattern, new RegExp(pattern)]);
+  Object.keys(formData).forEach(key => {
+    let patternSchema;
+
+    if (schema.properties.hasOwnProperty(key)) {
+      // No need to stub, our schema already has the property
+      return;
+    }
+
+    let matchingPattern = patterns.find(([, regex]) => regex.test(key));
+    if (!matchingPattern && !hasAdditionalProperties) {
+      matchingPattern = patterns[0];  // default to first pattern if no match and no additional properties
+    }
+
+    if (matchingPattern) {
+      patternSchema = schema.patternProperties[matchingPattern[0]];
+
+      if (schema.hasOwnProperty("$ref")) {
+        patternSchema = retrieveSchema(
+          { $ref: patternSchema["$ref"] },
+          rootSchema,
+          formData
+        );
+      }
+
+      // The type of our new key should match the patternProperties value;
+      schema.properties[key] = patternSchema;
+
+      // Set our pattern property so we know it was dynamically added
+      schema.properties[key][PATTERN_PROPERTY] = matchingPattern[0];
+    }
+    // remaining properties will be filled in as additionalProperties
+  });
+
+  return schema;
+}
+
 /**
  * Resolves a conditional block (if/else/then) by removing the condition and merging the appropriate conditional branch with the rest of the schema
  */
@@ -764,6 +824,18 @@ export function retrieveSchema(schema, rootSchema = {}, formData = {}) {
       return resolvedSchemaWithoutAllOf;
     }
   }
+
+  const hasPatternProperties =
+    resolvedSchema.hasOwnProperty("patternProperties") &&
+    Object.keys(resolvedSchema.patternProperties).length > 0;
+  if (hasPatternProperties) {
+    resolvedSchema = stubExistingPatternProperties(
+      resolvedSchema,
+      rootSchema,
+      formData
+    );
+  }
+
   const hasAdditionalProperties =
     resolvedSchema.hasOwnProperty("additionalProperties") &&
     resolvedSchema.additionalProperties !== false;
@@ -1328,4 +1400,19 @@ export function schemaRequiresTrueValue(schema) {
   }
 
   return false;
+}
+
+export function isAddedProperty(property) {
+  return property.hasOwnProperty(ADDITIONAL_PROPERTY_FLAG) || property.hasOwnProperty(PATTERN_PROPERTY);
+}
+
+export function uiSchemaForProperty(name, properties, uiSchema) {
+  const property = properties[name];
+
+  if (property.hasOwnProperty(ADDITIONAL_PROPERTY_FLAG)) {
+    return uiSchema.additionalProperties;
+  } else if (property.hasOwnProperty(PATTERN_PROPERTY)) {
+    return uiSchema.patternProperties ? uiSchema.patternProperties[property[PATTERN_PROPERTY]] : undefined;
+  }
+  return uiSchema[name];
 }
